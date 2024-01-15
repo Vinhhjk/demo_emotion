@@ -1,0 +1,3 @@
+deepface
+customtkinter
+cv2
