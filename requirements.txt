@@ -1,3 +1,4 @@
 deepface
 customtkinter
 cv2
+threading
