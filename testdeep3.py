@@ -3,7 +3,8 @@ import customtkinter as ctk
 from PIL import Image, ImageTk
 from deepface import DeepFace
 import threading
-
+from timeit import default_timer as timer
+import time
 # Create the app
 app = ctk.CTk()
 app.title("Emotion Detection App")
@@ -47,33 +48,45 @@ dominant_gender_label.grid(row=1, column=2)
 cap = cv2.VideoCapture(0)
 # Create a variable to control the update of the frame
 update_frame = True
-
 # Create a function to detect emotions continuously
 def detect_emotion():
+    # Set max FPS
+    MAX_FPS = 70
+
+    # Calculate frame rate 
+    frame_rate = 0
+    frame_start_time = timer()
     while update_frame:
         ret, img = cap.read()
-        
         # Convert the frame to grayscale
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
         # Detect faces in the frame
         faceCascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
         faces = faceCascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(35, 35))
-        # Draw a rectangle around each face
-        for i, (x, y, w, h) in enumerate(faces):
-            cv2.rectangle(img, (x, y), (x+w, y+h), (0, 255, 0), 2)
-            cv2.putText(img, f"Face {i+1}", (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,0), 2)
+        frame_end_time = timer()
+        frame_time = frame_end_time - frame_start_time
+        frame_rate = 1/frame_time
+        # Limit FPS
+        if frame_rate > MAX_FPS:
+            time.sleep(1/MAX_FPS - frame_time)
 
         # If faces are detected, analyze the frame
         if len(faces) >0:
             results = DeepFace.analyze(img, actions=['emotion', 'gender'], enforce_detection=False)
+            print(results)
             if isinstance(results, list):
                 for i, result in enumerate(results):
+                    # Draw a rectangle around each face
+                    for i, (x, y, w, h) in enumerate(faces):
+                        cv2.rectangle(img, (x, y), (x+w, y+h), (0, 255, 0), 2)
+                        cv2.putText(img, f"Face {i+1}, {result['dominant_gender']}", (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,0), 2)
                     # Update the dominant_gender and dominant_emotion labels
                     dominant_gender_label.configure(text=f"Face {i+1}: {result['dominant_gender']}, {result['dominant_emotion']}")
                     # Update the progress bars with the emotion values
                     for emotion, progress_bar in progress_bars.items():
                         progress_bar.set(result['emotion'][emotion])
+                
         # Convert the image from BGR color (which OpenCV uses) to RGB color (which tkinter uses)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
